@@ -1,5 +1,5 @@
 <?php
-$sub_menu = "600100";
+$sub_menu = "600200";
 require_once './_common.php';
 
 if (!isset($auth) || !isset($w) || !isset($gtm) || !isset($config))
@@ -97,8 +97,7 @@ $colspan = 7;
                         <td class=""><?php echo $row['memo'] ?></td>
                         <td class="td_datetime"><?php echo $row['writedate'] ?></td>
                         <td class="">
-                            <a href="<?=GTM_ADMIN_TABLE_VIEWER_URL?>/view.php?table_id=<?php echo $row['id'] ?>" class="btn btn_03">테이블 보기</a>
-                            <a href="<?=GTM_ADMIN_MAKE_COLUMN_URL?>/list.php?table_id=<?php echo $row['id'] ?>" class="btn btn_01">컬럼 관리</a>
+                            <a href="./view.php?table_id=<?php echo $row['id'] ?>" class="btn btn_03">테이블 보기</a>
                         </td>
                     </tr>
 
@@ -113,8 +112,8 @@ $colspan = 7;
         </div>
         <div class="btn_fixed_top">
             <?php if (isset($is_admin) && $is_admin == "super") { ?>
-            <input type="submit" name="act_button" value="선택수정" onclick="document.pressed=this.value" class="btn btn_02">
-            <input type="submit" name="act_button" value="선택삭제" onclick="document.pressed=this.value" class="btn btn_02">
+                <input type="submit" name="act_button" value="선택수정" onclick="document.pressed=this.value" class="btn btn_02">
+                <input type="submit" name="act_button" value="선택삭제" onclick="document.pressed=this.value" class="btn btn_02">
             <?php } ?>
             <a href="./form.php" id="member_add" class="btn btn_01">테이블 추가</a>
         </div>
