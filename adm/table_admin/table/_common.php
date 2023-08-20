@@ -24,6 +24,7 @@ function createUserTable($table_name, $memo)
 
     if (!isset($gtm) || !isset($table_name) || $table_name == "") return null;
 
+    $table_id = 0;
 
     $resultCreateTable = false;
     $resultInsertTable = false;
@@ -77,4 +78,5 @@ function createUserTable($table_name, $memo)
             alert("mysql 처리 실패");
         }
     }
+    return $table_id;
 }
