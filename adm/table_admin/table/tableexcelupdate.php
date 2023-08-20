@@ -2,8 +2,13 @@
 $sub_menu = '600100';
 include_once('./_common.php');
 
-if (!isset($auth) || !isset($w) || !isset($gtm))
+if (!isset($auth) || !isset($w) || !isset($gtm) || !isset($gtm_config))
     alert('w 값이 제대로 넘어오지 않았습니다.');
+
+/*
+ * 엑셀 업로드할때 몇번째 행부터 데이터로 적용할건지
+ */
+$gtm_config["excel_data_row"] = 5;
 
 // 테이블 내용이 많을 경우 대비 설정변경
 set_time_limit ( 0 );
@@ -51,157 +56,135 @@ if($is_upload_file) {
     $fail_count = 0;
     $succ_count = 0;
 
-    $column_names = array();
-    $input_types = array();
-    $input_sizes = array();
 
     /*
      * 1차 : 테이블 만들기
      */
-    createUserTable($table_name, $memo);
+    $table_id = createUserTable($table_name, $memo);
+    if ($table_id == 0)
+        alert("테이블 생성이 안되었습니다.");
 
     /*
      * 2차 : 컬럼 만들기
      * 1행 : column_name
      * 2행 : input_type
      * 3행 : input_size
+     * 4행 : 메모
      */
-    for ($i = 0; $i <= $num_rows; $i++) {
-        $total_count++;
-
-        $j = 0;
-
+    $column_names = array();
+    $input_types = array();
+    $input_sizes = array();
+    $memos = array();
+    for ($i = 1; $i <= ($gtm_config["excel_data_row"] - 1); $i++) {
         $rowData = $sheet->rangeToArray('A' . $i . ':' . $highestColumn . $i, NULL, TRUE, FALSE);
 
+        for($i2 = 0; $i2 < count($rowData[0]); $i2++) {
+            if ($i == 1) {
+                $column_names[] = $rowData[0][$i2];
+            }
+            else if ($i == 2) {
+                $input_types[] = $rowData[0][$i2];
+            }
+            else if ($i == 3) {
+                $input_sizes[] = $rowData[0][$i2];
+            }
+            else if ($i == 4) {
+                $memos[] = $rowData[0][$i2];
+            }
+        }
+    }
+    // ALTER TABLE `테이블명` ADD `컬럼명` 자료형
+    // ALTER TABLE `employee` ADD `comments` VARCHAR(200) NOT NULL
+//    print_r2($column_names);
+//    print_r2($input_types);
+//    print_r2($input_sizes);
+//    print_r2($memos);
+    if (count($column_names) > 0) {
+        for ($i = 0; $i < count($column_names); $i++) {
+            if (!isset($column_names[$i]) || !isset($input_types[$i]) || !isset($input_sizes[$i]))
+                continue;
+            $column_name = $column_names[$i];
+            /*
+             * 맨 처음 공뷰 컬럼은 무시
+             */
+            if ($i == 0 && $column_name == "id") continue;
+
+            $input_type = $input_types[$i];
+            $input_size = $input_sizes[$i];
+            $allow_null = "N";
+            $is_linked = "N";
+            $memo = isset($memos[$i])?$memos[$i]:$column_name;
+
+            $sql_common = "
+            table_id = '{$table_id}',
+            column_name = '{$column_name}',
+            input_type = '{$input_type}',
+            input_size = '{$input_size}',
+            allow_null = '{$allow_null}',
+            is_linked = '{$is_linked}',
+            memo = '{$memo}'
+            ";
+            $not_null_str = '';
+            if ($allow_null == 'N') {
+                $not_null_str = 'NOT NULL';
+            }
+
+            $tableName = getTableNameByQuery($table_id);
+            sql_query("alter table ".$tableName." add ".$column_name." ".getColumnDbType($input_type)."(".$input_size.") ".$not_null_str." ");
+
+            $sql = "insert into {$gtm['column_list']} set  writedate = '" . G5_TIME_YMDHIS . "', {$sql_common} ";
+//            echo $sql."<BR>";
+            sql_query($sql);
+
+            $link_table_id = 0;
+            $link_column_id = 0;
+            if ($is_linked == 'Y') {
+                $column_id = sql_insert_id();
+                $sql_common = "
+                table_id = '{$table_id}',
+                column_id = '{$column_id}',
+                link_table_id = '{$link_table_id}',
+                link_column_id = '{$link_column_id}',
+                writedate = '".G5_TIME_YMDHIS."'
+                ";
+                sql_query(" insert into {$gtm['column_link_list']} set {$sql_common} ");
+            }
+        }
     }
     /*
      * 3차 : 내용 넣기
      */
-    for ($i = 0; $i <= $num_rows; $i++) {
+    for ($i = $gtm_config["excel_data_row"]; $i <= $num_rows; $i++) {
         $total_count++;
 
         $j = 0;
 
         $rowData = $sheet->rangeToArray('A' . $i . ':' . $highestColumn . $i, NULL, TRUE, FALSE);
 
-        $it_id              = (string) $rowData[0][$j++];
-        $ca_id              = addslashes($rowData[0][$j++]);
-        $ca_id2             = addslashes((string)$rowData[0][$j++]);
-        $ca_id3             = addslashes((string)$rowData[0][$j++]);
-        $it_name            = addslashes($rowData[0][$j++]);
-        $it_maker           = addslashes((string)$rowData[0][$j++]);
-        $it_origin          = addslashes((string)$rowData[0][$j++]);
-        $it_brand           = addslashes((string)$rowData[0][$j++]);
-        $it_model           = addslashes((string)$rowData[0][$j++]);
-        $it_type1           = addslashes((string)$rowData[0][$j++]);
-        $it_type2           = addslashes((string)$rowData[0][$j++]);
-        $it_type3           = addslashes((string)$rowData[0][$j++]);
-        $it_type4           = addslashes((string)$rowData[0][$j++]);
-        $it_type5           = addslashes((string)$rowData[0][$j++]);
-        $it_basic           = addslashes((string)$rowData[0][$j++]);
-        $it_explan          = addslashes((string)$rowData[0][$j++]);
-        $it_mobile_explan   = addslashes((string)$rowData[0][$j++]);
-        $it_cust_price      = addslashes(only_number($rowData[0][$j++]));
-        $it_price           = addslashes(only_number($rowData[0][$j++]));
-        $it_tel_inq         = addslashes((string)$rowData[0][$j++]);
-        $it_point           = addslashes(only_number($rowData[0][$j++]));
-        $it_point_type      = addslashes(only_number($rowData[0][$j++]));
-        $it_sell_email      = addslashes((string)$rowData[0][$j++]);
-        $it_use             = addslashes((string)$rowData[0][$j++]);
-        $it_stock_qty       = addslashes(only_number($rowData[0][$j++]));
-        $it_noti_qty        = addslashes(only_number($rowData[0][$j++]));
-        $it_buy_min_qty     = addslashes(only_number($rowData[0][$j++]));
-        $it_buy_max_qty     = addslashes(only_number($rowData[0][$j++]));
-        $it_notax           = addslashes(only_number($rowData[0][$j++]));
-        $it_order           = addslashes(only_number($rowData[0][$j++]));
-        $it_img1            = addslashes((string)$rowData[0][$j++]);
-        $it_img2            = addslashes((string)$rowData[0][$j++]);
-        $it_img3            = addslashes((string)$rowData[0][$j++]);
-        $it_img4            = addslashes((string)$rowData[0][$j++]);
-        $it_img5            = addslashes((string)$rowData[0][$j++]);
-        $it_img6            = addslashes((string)$rowData[0][$j++]);
-        $it_img7            = addslashes((string)$rowData[0][$j++]);
-        $it_img8            = addslashes((string)$rowData[0][$j++]);
-        $it_img9            = addslashes((string)$rowData[0][$j++]);
-        $it_img10           = addslashes((string)$rowData[0][$j++]);
-        $it_explan2         = strip_tags(trim($it_explan));
+        $sql_common = "";
+        for ($i2 = 0; $i2 < count($column_names); $i2++) {
+            if ($sql_common !== "")
+                $sql_common .= ", ";
 
-        if(!$it_id || !$ca_id || !$it_name) {
-            $fail_count++;
-            continue;
+            $input_type = $input_types[$i2];
+            $input_size = $input_sizes[$i2];
+
+            $value = $rowData[0][$i2];
+            if (isset($gtm_column_input_type_string) && $input_type == $gtm_column_input_type_string) {
+                $value = "'".addslashes($rowData[0][$i2])."'";
+            }
+            else if (isset($gtm_column_input_type_int) && $input_type == $gtm_column_input_type_int) {
+                $value = only_number($rowData[0][$i2]);
+            }
+            $sql_common .= $column_names[$i2]." = ".$value;
         }
-
-        // it_id 중복체크
-        $sql2 = " select count(*) as cnt from {$g5['g5_shop_item_table']} where it_id = '$it_id' ";
-        $row2 = sql_fetch($sql2);
-        if(isset($row2['cnt']) && $row2['cnt']) {
-            $fail_it_id[] = $it_id;
-            $dup_it_id[] = $it_id;
-            $dup_count++;
-            $fail_count++;
-            continue;
-        }
-
-        // 기본분류체크
-        $sql2 = " select count(*) as cnt from {$g5['g5_shop_category_table']} where ca_id = '$ca_id' ";
-        $row2 = sql_fetch($sql2);
-        if(! (isset($row2['cnt']) && $row2['cnt'])) {
-            $fail_it_id[] = $it_id;
-            $fail_count++;
-            continue;
-        }
-
-        $sql = " INSERT INTO {$g5['g5_shop_item_table']}
-                     SET it_id = '$it_id',
-                         ca_id = '$ca_id',
-                         ca_id2 = '$ca_id2',
-                         ca_id3 = '$ca_id3',
-                         it_name = '$it_name',
-                         it_maker = '$it_maker',
-                         it_origin = '$it_origin',
-                         it_brand = '$it_brand',
-                         it_model = '$it_model',
-                         it_type1 = '$it_type1',
-                         it_type2 = '$it_type2',
-                         it_type3 = '$it_type3',
-                         it_type4 = '$it_type4',
-                         it_type5 = '$it_type5',
-                         it_basic = '$it_basic',
-                         it_explan = '$it_explan',
-                         it_explan2 = '$it_explan2',
-                         it_mobile_explan = '$it_mobile_explan',
-                         it_cust_price = '$it_cust_price',
-                         it_price = '$it_price',
-                         it_point = '$it_point',
-                         it_point_type = '$it_point_type',
-                         it_stock_qty = '$it_stock_qty',
-                         it_noti_qty = '$it_noti_qty',
-                         it_buy_min_qty = '$it_buy_min_qty',
-                         it_buy_max_qty = '$it_buy_max_qty',
-                         it_notax = '$it_notax',
-                         it_use = '$it_use',
-                         it_time = '".G5_TIME_YMDHIS."',
-                         it_ip = '{$_SERVER['REMOTE_ADDR']}',
-                         it_order = '$it_order',
-                         it_tel_inq = '$it_tel_inq',
-                         it_img1 = '$it_img1',
-                         it_img2 = '$it_img2',
-                         it_img3 = '$it_img3',
-                         it_img4 = '$it_img4',
-                         it_img5 = '$it_img5',
-                         it_img6 = '$it_img6',
-                         it_img7 = '$it_img7',
-                         it_img8 = '$it_img8',
-                         it_img9 = '$it_img9',
-                         it_img10 = '$it_img10' ";
-
-        sql_query($sql);
-
-        $succ_count++;
+        $isql = "insert into ".$tableName." set ".$sql_common." ";
+//        echo $isql."<br>";
+        sql_query($isql);
     }
 }
 
-$g5['title'] = '상품 엑셀일괄등록 결과';
+$g5['title'] = '테이블 엑셀일괄등록 결과';
 include_once(G5_PATH.'/head.sub.php');
 ?>
 
@@ -209,27 +192,8 @@ include_once(G5_PATH.'/head.sub.php');
         <h1><?php echo $g5['title']; ?></h1>
 
         <div class="local_desc01 local_desc">
-            <p>상품등록을 완료했습니다.</p>
+            <p>테이블 등록을 완료했습니다.</p>
         </div>
-
-        <dl id="excelfile_result">
-            <dt>총상품수</dt>
-            <dd><?php echo number_format($total_count); ?></dd>
-            <dt>완료건수</dt>
-            <dd><?php echo number_format($succ_count); ?></dd>
-            <dt>실패건수</dt>
-            <dd><?php echo number_format($fail_count); ?></dd>
-            <?php if($fail_count > 0) { ?>
-                <dt>실패상품코드</dt>
-                <dd><?php echo implode(', ', $fail_it_id); ?></dd>
-            <?php } ?>
-            <?php if($dup_count > 0) { ?>
-                <dt>상품코드중복건수</dt>
-                <dd><?php echo number_format($dup_count); ?></dd>
-                <dt>중복상품코드</dt>
-                <dd><?php echo implode(', ', $dup_it_id); ?></dd>
-            <?php } ?>
-        </dl>
 
         <div class="btn_win01 btn_win">
             <button type="button" onclick="window.close();">창닫기</button>
