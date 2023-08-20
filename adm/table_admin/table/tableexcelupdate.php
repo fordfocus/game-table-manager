@@ -93,19 +93,13 @@ if($is_upload_file) {
             }
         }
     }
-    // ALTER TABLE `테이블명` ADD `컬럼명` 자료형
-    // ALTER TABLE `employee` ADD `comments` VARCHAR(200) NOT NULL
-//    print_r2($column_names);
-//    print_r2($input_types);
-//    print_r2($input_sizes);
-//    print_r2($memos);
     if (count($column_names) > 0) {
         for ($i = 0; $i < count($column_names); $i++) {
             if (!isset($column_names[$i]) || !isset($input_types[$i]) || !isset($input_sizes[$i]))
                 continue;
             $column_name = $column_names[$i];
             /*
-             * 맨 처음 공뷰 컬럼은 무시
+             * 맨 처음 고유번호 컬럼은 무시
              */
             if ($i == 0 && $column_name == "id") continue;
 
@@ -133,7 +127,6 @@ if($is_upload_file) {
             sql_query("alter table ".$tableName." add ".$column_name." ".getColumnDbType($input_type)."(".$input_size.") ".$not_null_str." ");
 
             $sql = "insert into {$gtm['column_list']} set  writedate = '" . G5_TIME_YMDHIS . "', {$sql_common} ";
-//            echo $sql."<BR>";
             sql_query($sql);
 
             $link_table_id = 0;
@@ -179,7 +172,6 @@ if($is_upload_file) {
             $sql_common .= $column_names[$i2]." = ".$value;
         }
         $isql = "insert into ".$tableName." set ".$sql_common." ";
-//        echo $isql."<br>";
         sql_query($isql);
     }
 }
