@@ -13,7 +13,7 @@ if ($table_id == 0) {
     alert("테이블을 선택해주세요", GTM_ADMIN_MAKE_TABLE_URL . '/list.php');
 }
 
-$sql = " select * from {$gtm['table_column_list']} where table_id = '{$table_id}' ";
+$sql = " select * from {$gtm['column_list']} where table_id = '{$table_id}' ";
 $result = sql_query($sql);
 
 $g5['title'] = "컬럼 관리";
@@ -59,6 +59,8 @@ $colspan = 7;
                 <th scope="col">입력가능 타입</th>
                 <th scope="col">입력가능 사이즈</th>
                 <th scope="col">Null 허용</th>
+                <th scope="col">연결된 테이블</th>
+                <th scope="col">연결된 컬럼</th>
                 <th scope="col">작성일시</th>
             </tr>
             </thead>
@@ -66,6 +68,10 @@ $colspan = 7;
             <?php
             for ($i = 0; $row = sql_fetch_array($result); $i++) {
                 $bg = 'bg' . ($i % 2);
+                $linkColumnInfos = array("link_table_id"=>"","link_column_id"=>"");
+                if ($row["is_linked"] === "Y") {
+                    $linkColumnInfos = getColumnLinkInfos($table_id, $row["id"]);
+                }
                 ?>
 
                 <tr class="<?php echo $bg; ?>">
@@ -76,9 +82,11 @@ $colspan = 7;
                     <td class="td_num_c"><?php echo $row["id"] ?></td>
                     <td class="td_left"><?php echo $row['column_name'] ?></td>
                     <td class=""><?php echo $row['memo'] ?></td>
-                    <td class=""><?php echo $row['input_type'] ?></td>
+                    <td class=""><?php echo getColumnDbType($row['input_type']) ?></td>
                     <td class=""><?php echo $row['input_size'] ?></td>
                     <td class=""><?php echo $row['allow_null'] ?></td>
+                    <td class=""><?php echo getTableName($linkColumnInfos['link_table_id'], true) ?></td>
+                    <td class=""><?php echo getColumnName($linkColumnInfos['link_column_id'], true) ?></td>
                     <td class="td_datetime"><?php echo $row['writedate'] ?></td>
                 </tr>
 
@@ -107,6 +115,7 @@ $tableName = getTableName($table_id, true);
     <form name="fcolumn" id="fcolumn" action="./update.php" method="post" enctype="multipart/form-data">
         <input type="hidden" name="w" value="">
         <input type="hidden" name="table_id" value="<?php echo $table_id ?>">
+        <input type="hidden" name="is_linked" value="N">
         <input type="hidden" name="token" value="">
 
         <div class="tbl_frm01 tbl_wrap">
@@ -145,6 +154,92 @@ $tableName = getTableName($table_id, true);
                     <th scope="row"><label for="input_type">NOT NULL 허용<strong class="sound_only"></strong></label></th>
                     <td colspan="3">
                         <?=getRadioByYN('allow_null', array("Y"=>"NULL 허용","N"=>"NULL 비허용"))?>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+
+        <div class="btn_confirm01 btn_confirm">
+            <input type="submit" value="확인" class="btn_submit btn" >
+        </div>
+
+    </form>
+
+    <h2 class="h2_frm">기존 컬럼 연결</h2>
+    <form name="fcolumn" id="fcolumn" action="./update.php" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="w" value="">
+        <input type="hidden" name="table_id" value="<?php echo $table_id ?>">
+        <input type="hidden" name="is_linked" value="Y">
+        <input type="hidden" name="token" value="">
+
+        <div class="tbl_frm01 tbl_wrap">
+
+            <table>
+                <caption><?php echo $g5['title']; ?></caption>
+                <tbody>
+                <tr>
+                    <th scope="row"><label for="column_name">테이블명<strong class="sound_only"></strong></label></th>
+                    <td colspan="3"><?=$tableName?></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="column_name">컬럼명<strong class="sound_only">필수</strong></label></th>
+                    <td>
+                        <?php echo help("컬럼명은 영문만 가능합니다. 최대 20자만 가능합니다.") ?>
+                        <input type="text" name="column_name" value="" required id="column_name" class="required frm_input" size="20" maxlength="20">
+                    </td>
+                    <th scope="row"><label for="memo">메모</label></th>
+                    <td>
+                        <input type="text" name="memo" value="" id="memo" class="frm_input" size="50">
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="input_type">연결할 테이블명<strong class="sound_only">필수</strong></label></th>
+                    <td>
+                        <?php
+                        $sql = "select * from {$gtm['table_list']} where id != {$table_id} order by table_name asc ";
+                        $query = sql_query($sql);
+                        echo "<select name='link_table_id' id='link_table_id' onchange='ajaxGetColumnByTableId()'> <option value=''>선택</option>";
+                        for($i = 0; $row = sql_fetch_array($query); ++$i) {
+                            echo "<option value='".$row["id"]."'>".$row["table_name"]." (".$row["memo"].")</option>";
+                        }
+                        echo "</select>";
+                        ?>
+                        <script>
+                            function ajaxGetColumnByTableId() {
+                                $.ajax({
+                                    type: "POST",
+                                    url: gtm_admin_ajax_url+"/column_list.php",
+                                    data: {
+                                        "table_id": encodeURIComponent($("#link_table_id").val())
+                                    },
+                                    dataType: "json",
+                                    cache: false,
+                                    async: false,
+                                    success: function(data) {
+                                        console.log(data);
+                                        $("#link_column_id option").remove();
+                                        if (data.resultCode === 1) {
+                                            let columns = data.resultDatas;
+                                            for(let i = 0, len = columns.length; i < len; ++i) {
+                                                let column = columns[i];
+                                                if (!column) continue;
+                                                let str = '<option value="%s">%s (%s)</option>'.format(column.id, column.column_name, column.memo);
+                                                $("#link_column_id").append(str);
+                                            }
+                                        }
+                                        else if (data.resultMessage !== undefined && data.resultMessage !== '') {
+                                            alert(data.resultMessage);
+                                        }
+                                    }
+                                });
+                            }
+                        </script>
+                    </td>
+                    <th scope="row"><label for="input_size">연결할 컬럼명<strong class="sound_only">필수</strong></label></th>
+                    <td>
+                        <select name="link_column_id" id="link_column_id"></select>
                     </td>
                 </tr>
                 </tbody>

@@ -8,4 +8,5 @@ define('GTM_MAKE_TABLE_PREFIX', 'gtm_user_');
  * 테이블 리스트
  */
 $gtm['table_list'] = GTM_TABLE_PREFIX.'table_list';
-$gtm['table_column_list'] = GTM_TABLE_PREFIX.'table_column_list';
+$gtm['column_list'] = GTM_TABLE_PREFIX.'column_list';
+$gtm['column_link_list'] = GTM_TABLE_PREFIX.'column_link_list';

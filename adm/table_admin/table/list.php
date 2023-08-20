@@ -117,6 +117,7 @@ $colspan = 7;
             <input type="submit" name="act_button" value="선택삭제" onclick="document.pressed=this.value" class="btn btn_02">
             <?php } ?>
             <a href="./form.php" id="member_add" class="btn btn_01">테이블 추가</a>
+            <a href="./tableexcel.php" onclick="return excelform(this.href);" target="_blank" class="btn btn_01">엑셀로 등록</a>
         </div>
     </form>
 
@@ -137,6 +138,12 @@ $colspan = 7;
                 }
             });
         });
+        function excelform(url)
+        {
+            var opt = "width=600,height=550,left=10,top=10";
+            window.open(url, "win_excel", opt);
+            return false;
+        }
     </script>
 
 <?php

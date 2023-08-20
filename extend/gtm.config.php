@@ -8,6 +8,7 @@ define('GTM_ADMIN_DIR', 'table_admin');
 define('GTM_ADMIN_URL', G5_ADMIN_URL.'/'.GTM_ADMIN_DIR.'');
 define('GTM_ADMIN_PATH', G5_ADMIN_PATH.'/'.GTM_ADMIN_DIR.'');
 
+define('GTM_ADMIN_LIB_URL', GTM_ADMIN_URL.'/lib');
 define('GTM_ADMIN_LIB_PATH', GTM_ADMIN_PATH.'/lib');
 
 /*

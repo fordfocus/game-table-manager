@@ -12,7 +12,7 @@ $tableName = getTableNameByQuery($id);
 if (!isset($tableName) || !$tableName || $tableName == "") {
     alert('테이블을 선택해주세요. id:'.$id);
 }
-$sql = "select * from ".$gtm['table_column_list']." where table_id = '".$id."' ";
+$sql = "select * from ".$gtm['column_list']." where table_id = '".$id."' ";
 $result = sql_query($sql);
 $columnInfos = array();
 for ($i = 0; $row = sql_fetch_array($result); $i++) {
