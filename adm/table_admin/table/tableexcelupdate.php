@@ -38,24 +38,26 @@ if ($table_name == '') {
  */
 checkSameTableName($table_name);
 
+$sheetNameConfig = "config";
+$sheetNameDatas = "datas";
+
 if($is_upload_file) {
     $file = $_FILES['excelfile']['tmp_name'];
 
     include_once(G5_LIB_PATH.'/PHPExcel/IOFactory.php');
 
     $objPHPExcel = PHPExcel_IOFactory::load($file);
-    $sheet = $objPHPExcel->getSheet(0);
+    if ($objPHPExcel->sheetNameExists($sheetNameConfig) !== true) {
+        alert("추가할 컬럼 정보 시트가 없습니다.");
+    }
+    if ($objPHPExcel->sheetNameExists($sheetNameDatas) !== true) {
+        alert("데이터 시트가 없습니다.");
+    }
+
+    $sheet = $objPHPExcel->getSheetByName($sheetNameConfig);
 
     $num_rows = $sheet->getHighestRow();
     $highestColumn = $sheet->getHighestColumn();
-
-    $dup_it_id = array();
-    $fail_it_id = array();
-    $dup_count = 0;
-    $total_count = 0;
-    $fail_count = 0;
-    $succ_count = 0;
-
 
     /*
      * 1차 : 테이블 만들기
@@ -66,50 +68,38 @@ if($is_upload_file) {
 
     /*
      * 2차 : 컬럼 만들기
-     * 1행 : column_name
-     * 2행 : input_type
-     * 3행 : input_size
-     * 4행 : 메모
+     * 1열 : column_name
+     * 2열 : input_type
+     * 3열 : input_size
+     * 4열 : 메모
      */
     $column_names = array();
     $input_types = array();
     $input_sizes = array();
     $memos = array();
-    for ($i = 1; $i <= ($gtm_config["excel_data_row"] - 1); $i++) {
+    for ($i = 2; $i <= $num_rows; $i++) {
+        $j = 0;
+
         $rowData = $sheet->rangeToArray('A' . $i . ':' . $highestColumn . $i, NULL, TRUE, FALSE);
 
-        for($i2 = 0; $i2 < count($rowData[0]); $i2++) {
-            if ($i == 1) {
-                $column_names[] = $rowData[0][$i2];
-            }
-            else if ($i == 2) {
-                $input_types[] = $rowData[0][$i2];
-            }
-            else if ($i == 3) {
-                $input_sizes[] = $rowData[0][$i2];
-            }
-            else if ($i == 4) {
-                $memos[] = $rowData[0][$i2];
-            }
-        }
-    }
-    if (count($column_names) > 0) {
-        for ($i = 0; $i < count($column_names); $i++) {
-            if (!isset($column_names[$i]) || !isset($input_types[$i]) || !isset($input_sizes[$i]))
-                continue;
-            $column_name = $column_names[$i];
-            /*
-             * 맨 처음 고유번호 컬럼은 무시
-             */
-            if ($i == 0 && $column_name == "id") continue;
+        $column_name = $rowData[0][$j++];
+        $input_type = $rowData[0][$j++];
+        $input_size = $rowData[0][$j++];
+        $memo = $rowData[0][$j++];
+        $allow_null = "N";
+        $is_linked = "N";
 
-            $input_type = $input_types[$i];
-            $input_size = $input_sizes[$i];
-            $allow_null = "N";
-            $is_linked = "N";
-            $memo = isset($memos[$i])?$memos[$i]:$column_name;
+        $column_names[] = $column_name;
+        $input_types[] = $input_type;
+        $input_sizes[] = $input_size;
+        $memos[] = $memo;
 
-            $sql_common = "
+        /*
+         * 맨 처음 고유번호 컬럼은 무시
+         */
+        if ($i == 2 && $column_name == "id") continue;
+
+        $sql_common = "
             table_id = '{$table_id}',
             column_name = '{$column_name}',
             input_type = '{$input_type}',
@@ -118,58 +108,65 @@ if($is_upload_file) {
             is_linked = '{$is_linked}',
             memo = '{$memo}'
             ";
-            $not_null_str = '';
-            if ($allow_null == 'N') {
-                $not_null_str = 'NOT NULL';
-            }
+        $not_null_str = '';
+        if ($allow_null == 'N') {
+            $not_null_str = 'NOT NULL';
+        }
 
-            $tableName = getTableNameByQuery($table_id);
-            sql_query("alter table ".$tableName." add ".$column_name." ".getColumnDbType($input_type)."(".$input_size.") ".$not_null_str." ");
+        $tableName = getTableNameByQuery($table_id);
+        sql_query("alter table ".$tableName." add ".$column_name." ".getColumnDbType($input_type)."(".$input_size.") ".$not_null_str." ");
 
-            $sql = "insert into {$gtm['column_list']} set  writedate = '" . G5_TIME_YMDHIS . "', {$sql_common} ";
-            sql_query($sql);
+        $sql = "insert into {$gtm['column_list']} set  writedate = '" . G5_TIME_YMDHIS . "', {$sql_common} ";
+        sql_query($sql);
 
-            $link_table_id = 0;
-            $link_column_id = 0;
-            if ($is_linked == 'Y') {
-                $column_id = sql_insert_id();
-                $sql_common = "
+        $link_table_id = 0;
+        $link_column_id = 0;
+        if ($is_linked == 'Y') {
+            $column_id = sql_insert_id();
+            $sql_common = "
                 table_id = '{$table_id}',
                 column_id = '{$column_id}',
                 link_table_id = '{$link_table_id}',
                 link_column_id = '{$link_column_id}',
                 writedate = '".G5_TIME_YMDHIS."'
                 ";
-                sql_query(" insert into {$gtm['column_link_list']} set {$sql_common} ");
-            }
+            sql_query(" insert into {$gtm['column_link_list']} set {$sql_common} ");
         }
     }
+    $sheet = $objPHPExcel->getSheetByName($sheetNameDatas);
+
+    $num_rows = $sheet->getHighestRow();
+    $highestColumn = $sheet->getHighestColumn();
     /*
      * 3차 : 내용 넣기
      */
-    for ($i = $gtm_config["excel_data_row"]; $i <= $num_rows; $i++) {
-        $total_count++;
-
-        $j = 0;
-
+    for ($i = 1; $i <= $num_rows; $i++) {
         $rowData = $sheet->rangeToArray('A' . $i . ':' . $highestColumn . $i, NULL, TRUE, FALSE);
+
+        /*
+         * 맨 처음 컬럼에 #이 들어가 있으면 건너 뛰기
+         */
+        if (!isset($rowData[0][0]) || strpos($rowData[0][0], "#") !== false) continue;
 
         $sql_common = "";
         for ($i2 = 0; $i2 < count($column_names); $i2++) {
+            $column_name = $column_names[$i2];
+            if (!isset($column_name) || $column_name === '') continue;
+            $value = $rowData[0][$i2];
+
             if ($sql_common !== "")
                 $sql_common .= ", ";
 
             $input_type = $input_types[$i2];
             $input_size = $input_sizes[$i2];
 
-            $value = $rowData[0][$i2];
             if (isset($gtm_column_input_type_string) && $input_type == $gtm_column_input_type_string) {
                 $value = "'".addslashes($rowData[0][$i2])."'";
             }
             else if (isset($gtm_column_input_type_int) && $input_type == $gtm_column_input_type_int) {
                 $value = only_number($rowData[0][$i2]);
             }
-            $sql_common .= $column_names[$i2]." = ".$value;
+            $sql_common .= $column_name." = ".$value;
         }
         $isql = "insert into ".$tableName." set ".$sql_common." ";
         sql_query($isql);
