@@ -76,6 +76,8 @@ if($is_upload_file) {
     $column_names = array();
     $input_types = array();
     $input_sizes = array();
+    $link_table_ids = array();
+    $link_column_ids = array();
     $memos = array();
     for ($i = 2; $i <= $num_rows; $i++) {
         $j = 0;
@@ -86,13 +88,36 @@ if($is_upload_file) {
         $input_type = $rowData[0][$j++];
         $input_size = $rowData[0][$j++];
         $memo = $rowData[0][$j++];
+        if ($memo == '')
+            $memo = $column_name;
+        $link_table_id = $rowData[0][$j++];
+        $link_column_id = $rowData[0][$j++];
         $allow_null = "N";
         $is_linked = "N";
+        if ($link_table_id != '')
+            $is_linked = "Y";
+
+        if (isset($link_table_id) && isset($link_column_id) && $link_table_id != '' && $link_column_id != '') {
+            $linkColumnInfos = getColumnInfos($link_column_id);
+            if (isset($linkColumnInfos) && isset($linkColumnInfos["input_type"])) {
+                $input_type = $linkColumnInfos["input_type"];
+                $input_size = $linkColumnInfos["input_size"];
+                $allow_null = $linkColumnInfos["allow_null"];
+            }
+            else {
+                sql_query("delete from {$gtm["table_list"]} where id = {$table_id} ");
+                sql_query("delete from {$gtm["column_list"]} where table_id = {$table_id} ");
+                sql_query("drop table ".GTM_MAKE_TABLE_PREFIX.$table_name);
+                alert("연결할 컬럼 정보가 없습니다.");
+            }
+        }
 
         $column_names[] = $column_name;
         $input_types[] = $input_type;
         $input_sizes[] = $input_size;
         $memos[] = $memo;
+        $link_table_ids[] = $link_table_id;
+        $link_column_ids[] = $link_column_id;
 
         /*
          * 맨 처음 고유번호 컬럼은 무시
@@ -119,8 +144,6 @@ if($is_upload_file) {
         $sql = "insert into {$gtm['column_list']} set  writedate = '" . G5_TIME_YMDHIS . "', {$sql_common} ";
         sql_query($sql);
 
-        $link_table_id = 0;
-        $link_column_id = 0;
         if ($is_linked == 'Y') {
             $column_id = sql_insert_id();
             $sql_common = "
@@ -140,6 +163,7 @@ if($is_upload_file) {
     /*
      * 3차 : 내용 넣기
      */
+    $failDatas = [];
     for ($i = 1; $i <= $num_rows; $i++) {
         $rowData = $sheet->rangeToArray('A' . $i . ':' . $highestColumn . $i, NULL, TRUE, FALSE);
 
@@ -149,16 +173,29 @@ if($is_upload_file) {
         if (!isset($rowData[0][0]) || strpos($rowData[0][0], "#") !== false) continue;
 
         $sql_common = "";
+        $isContinue = false;
         for ($i2 = 0; $i2 < count($column_names); $i2++) {
             $column_name = $column_names[$i2];
-            if (!isset($column_name) || $column_name === '') continue;
+            if (!isset($column_name) || $column_name == '') continue;
             $value = $rowData[0][$i2];
-
-            if ($sql_common !== "")
-                $sql_common .= ", ";
-
             $input_type = $input_types[$i2];
             $input_size = $input_sizes[$i2];
+            $link_table_id = $link_table_ids[$i2];
+            $link_column_id = $link_column_ids[$i2];
+
+            if ($link_table_id != '' && $link_column_id != '') {
+                $linkTableName = getTableNameByQuery($link_table_id);
+                $linkInfos = getUserTableInfo($link_table_id, $link_column_id, $value);
+                if (!$linkInfos) {
+//                    alert("연결된 테이블에 해당 값이 없습니다. table_id:".$link_table_id."/column_id:".$link_column_id."/value:".$value);
+                    $failDatas = array("열"=>$i,"행"=>$i2);
+                    $isContinue = true;
+                    continue;
+                }
+            }
+
+            if ($sql_common != "")
+                $sql_common .= ", ";
 
             if (isset($gtm_column_input_type_string) && $input_type == $gtm_column_input_type_string) {
                 $value = "'".addslashes($rowData[0][$i2])."'";
@@ -168,6 +205,8 @@ if($is_upload_file) {
             }
             $sql_common .= $column_name." = ".$value;
         }
+        if ($isContinue == true)
+            continue;
         $isql = "insert into ".$tableName." set ".$sql_common." ";
         sql_query($isql);
     }
@@ -182,6 +221,11 @@ include_once(G5_PATH.'/head.sub.php');
 
         <div class="local_desc01 local_desc">
             <p>테이블 등록을 완료했습니다.</p>
+        </div>
+        <div>
+            <?php
+            print_r2($failDatas);
+            ?>
         </div>
 
         <div class="btn_win01 btn_win">

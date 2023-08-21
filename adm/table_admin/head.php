@@ -7,6 +7,7 @@ include_once (GTM_ADMIN_PATH."/lib/common.lib.php");
 include_once (GTM_ADMIN_PATH."/lib/database.lib.php");
 include_once (GTM_ADMIN_PATH."/lib/table.lib.php");
 include_once (GTM_ADMIN_PATH."/lib/column.lib.php");
+include_once (GTM_ADMIN_PATH."/lib/user_table.lib.php");
 
 include_once(G5_ADMIN_PATH.'/admin.lib.php');
 
