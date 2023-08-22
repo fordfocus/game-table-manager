@@ -2,6 +2,9 @@
 $sub_menu = '600100';
 include_once('./_common.php');
 
+if (!isset($auth))
+    alert('w 값이 제대로 넘어오지 않았습니다.');
+
 auth_check_menu($auth, $sub_menu, "w");
 
 $g5['title'] = '엑셀파일로 테이블 등록';
