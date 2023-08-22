@@ -33,6 +33,20 @@ function getTableName($table_id, $addMemo = false) {
 }
 
 /**
+ * 생성한 테이블 정보를 ini 로 다운로드할때에 사용하는 파일명 
+ * @param $table_id
+ * @return string|null
+ */
+function getTableInIName($table_id) {
+    global $gtm;
+
+    if (!isset($gtm) || !isset($table_id)) return null;
+    $name = getTableName($table_id);
+    if (!isset($name) || $name == '')
+        alert("테이블 정보가 없습니다.");
+    return $name.".ini";
+}
+/**
  * 유저가 생성한 테이블 이름에 prefix 붙여서 가져오기
  * @param $table_id
  * @return string|null

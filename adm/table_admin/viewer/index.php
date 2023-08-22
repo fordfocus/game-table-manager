@@ -48,9 +48,6 @@ $colspan = 7;
 
     <div class="local_desc01 local_desc">
         <p>
-            <b>테스트</b>는 등록된 최고관리자의 이메일로 테스트 메일을 발송합니다.<br>
-            현재 등록된 메일은 총 <?php echo $total_count ?>건입니다.<br>
-            <strong>주의) 수신자가 동의하지 않은 대량 메일 발송에는 적합하지 않습니다. 수십건 단위로 발송해 주십시오.</strong>
         </p>
     </div>
 
